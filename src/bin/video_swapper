@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+import sys
+
+import cv2
+from PIL import Image, ImageDraw
+import numpy as np
+
+sys.path.append("..")
+
+from settings import IMG_DIR, OUT_DIR, DATA_DIR
+from utils.logger import get_logger
+from utils.tools import (
+    convert_opencv2_to_pill,
+    convert_pill_to_opencv2,
+    random_timestamp, 
+    shred,
+    swap,
+    valid_location, 
+)
+from image_segmentation import segment, superimpose
+
+
+DEBUG = False
+
+logger = get_logger(__name__)
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument(
+    "video",
+    type=valid_location,
+    help="[INFO] Video to load",
+)
+
+parser.add_argument(
+    "--segment",
+    type=str,
+    choices=["yes", "no"],
+    help="[INFO] To segment or not."
+)
+
+parser.add_argument(
+    "--detect-eyes",
+    type=str,
+    default="no",
+    choices=["yes", "no"],
+    help="[INFO] To detect, crop, swap, and paste back eyes"
+)
+
+args = parser.parse_args()
+video = os.path.join(IMG_DIR, args.video) 
+to_segment = args.segment
+to_detect_eyes = args.detect_eyes
+
+########################################
+# Classifiers
+########################################
+
+eyes_cascade = cv2.CascadeClassifier(
+    os.path.join(DATA_DIR, "haarcascade_eye.xml")
+)
+face_cascade = cv2.CascadeClassifier(
+    os.path.join(DATA_DIR, "haarcascade_frontalface_default.xml")
+)
+
+#########################################
+# Cap and out to read and write
+#########################################
+
+cap = cv2.VideoCapture(video)
+out = cv2.VideoWriter(
+    os.path.join(OUT_DIR, f'{random_timestamp()}.avi'),
+    cv2.VideoWriter_fourcc('F', 'M', 'P', '4'),
+    20, 
+    (1080, 1920) # change to w and height of your video
+)
+
+i = 0
+while cap.isOpened():
+    if DEBUG:
+        if i == 5:
+            break
+    try:
+        ret, frame = cap.read()
+        coords = (0, 0, 1200, 1800) # change for coords
+        image = convert_opencv2_to_pill(frame) 
+        if to_segment == "yes":
+            segmen, mask = segment(
+                image, 
+                coords,
+                130, 
+                "white"
+            )
+            image = superimpose(
+                segmen, 
+                mask, 
+                image, 
+                False,
+                **{"scale_factor" : 0.10,
+                "char_width" : 7,
+                "char_heigth" : 7,
+                "fmt" : "jpeg",
+                "coords" : coords}
+            )
+        elif to_segment == "no" and to_detect_eyes == "no":
+            image, name, wh = swap(
+                image, 
+                random_colors=False, 
+                selected_colors=True,
+                **{"char_width" : 9,
+                "char_heigth" : 9,
+                "scale_factor" : 0.15,
+                "fmt" : "png",
+                "color" : (0, 0, 0),
+                "select_colors" : (255, 0, 0)}
+            )
+        elif to_segment == "no" and to_detect_eyes == "yes":
+            raise NotImplementedError("Not Implemented")
+        image = image.rotate(180)
+
+        img = convert_pill_to_opencv2(image) 
+        out.write(img) 
+        try: 
+            cv2.imshow('img', img)
+        except:
+            break
+    except Exception as error:
+        if DEBUG:
+            raise error
+        else:
+            print(str(error))
+        break
+    if cv2.waitKey(30) & 0xFF == ord('q'):
+        break
+    
+    i += 1
+
+shred(OUT_DIR)
+cap.release()
+out.release()
+cv2.destroyAllWindows()

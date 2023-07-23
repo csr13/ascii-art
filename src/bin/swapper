@@ -1,0 +1,330 @@
+#!/usr/bin/env python3
+import argparse
+import io
+import os
+import math
+import pdb
+import random
+import subprocess
+import sys
+import threading
+
+from tqdm import tqdm
+try:
+    from PIL import (
+        Image, 
+        ImageDraw, 
+        ImageFont
+    )
+except ImportError:
+    raise Exception("Missing the Pillow library.")
+
+sys.path.append("..")
+
+import settings
+from utils.logger import get_logger
+from utils.tools import hash_nom, colored
+
+logger = get_logger(__name__)
+
+THIS_DIR = settings.THIS_DIR
+
+MONTRER_DES_PHOTOS = False
+
+DEBUG = False
+
+PARSER = argparse.ArgumentParser(
+    formatter_class=argparse.RawDescriptionHelpFormatter
+)
+
+PARSER.add_argument(
+    "-c", "--color", 
+    type=int,
+    nargs="+", 
+    metavar="69",
+    default=[0,0,0],
+    help=settings.PARSER_ARGS_HELP["color"]
+)
+
+PARSER.add_argument(
+    "-cw", 
+    "--char-width", 
+    type=int,
+    nargs=1,
+    metavar=18,
+    default=[9], 
+    help=settings.PARSER_ARGS_HELP["char_width"]
+)
+
+PARSER.add_argument(
+    "-ch", 
+    "--char-height",
+    type=int,
+    metavar=9,
+    default=[9],
+    nargs=1, 
+    help=settings.PARSER_ARGS_HELP["char_height"],
+)
+
+PARSER.add_argument(
+    "-sf", 
+    "--scale-factor",
+    type=float,
+    metavar=0.18,
+    default=[0.18],
+    nargs=1, 
+    help=settings.PARSER_ARGS_HELP["scale_factor"],
+)
+
+PARSER.add_argument(
+    "-l", 
+    "--language",
+    type=str,
+    metavar="arabic",
+    choices=["standard", "arabic", "cyrillic"],
+    nargs=1,
+    default="standard",
+    help=settings.PARSER_ARGS_HELP["language"]
+)
+
+PARSER.add_argument(
+    "-fs",
+    "--font-size",
+    type=int,
+    metavar=19,
+    nargs=1,
+    default=[14],
+    help=settings.PARSER_ARGS_HELP["font_size"]
+)
+
+PARSER.add_argument(
+    "-sw",
+    "--stroke-width",
+    type=int,
+    metavar=2,
+    nargs=1,
+    default=[0],
+    help=settings.PARSER_ARGS_HELP["stroke_width"]
+)
+
+PARSER.add_argument(
+    "-nc",
+    "--no-color",
+    type=str,
+    nargs=1,
+    metavar="yes",
+    default=["no"],
+    choices=["yes"],
+    help="[INFO] User original rgb colors"
+)
+
+
+class VotrePhotographie(object):
+    
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def checks(self):
+        if subprocess.run(
+            "which mimeopen".split(), 
+            capture_output=True
+        ).returncode == 1:
+
+            return False
+        return True
+
+    def montrer_la_photo(self, photo):
+        if not self.checks():
+            return False
+        os.system("mimeopen {}".format(photo))
+        return True
+
+    def emplacement_de_depot(self):
+        if not os.path.exists(self.LOCA_DROP):
+            os.mkdir(self.LOCA_DROP)
+        return True
+   
+    def executer(self):
+        self.emplacement_de_depot()
+        ou_je_te_garde = self.IMAGES
+        for vous in os.listdir(ou_je_te_garde):
+            self.vous_dessine(vous)
+
+    def morceau_de_toi(self, piece : int):
+        u = math.floor(piece * self.INTERVAL)
+        return self.CHARS_LIST[u]
+    
+    def show_vous(self, vous):
+        logger.info("[INFO] Ouverture photo modifiée {}".format(vous))
+        daemon = threading.Thread(
+            target=self.montrer_la_photo, 
+            args=(vous,),
+            daemon=bool(1)
+        )
+        daemon.start()
+
+    def vous_dessine(self, vous):
+        votre_nom = os.path.join(
+            self.LOCA_DROP, 
+            hash_nom(vous, "txt")
+        )
+
+        with io.open(votre_nom, "w", encoding="utf-8") as ts:
+            toi = Image.open(os.path.join(self.IMAGES, vous))
+            
+            wh = toi.size
+            w1 = wh[0]
+            h1 = wh[1]
+            
+            w2 = int(self.SCALE_FACTOR * (w1 / 2))
+            h2 = int(self.SCALE_FACTOR * (h1 / 2))
+            h2 = int(h2 * (self.CHAR_WIDTH / self.CHAR_HEIGHT))
+            toi = toi.resize((w2, h2), Image.NEAREST)
+            
+            wh3 = toi.size
+            w3 = wh3[0]
+            h3 = wh3[1]
+            
+            pixel = toi.load()
+            w4 = self.CHAR_WIDTH * w3
+            h4 = self.CHAR_HEIGHT * h3
+            
+            if self.NO_COLOR:
+                votre_cadre = Image.new('RGB', (w4, h4), color=0)
+            else:
+                votre_cadre = Image.new('RGB', (w4, h4), color=self.COLOR)
+            
+            noir_et_blanc = ImageDraw.Draw(votre_cadre)
+            lang = self.LANGUAGE
+            is_png = False
+            random = 0
+            
+            for toiy in range(h4):
+                line_string = []
+                for bellex in range(w4):
+                    try:
+                        pixel[bellex, toiy]
+                    except IndexError as error:
+                        continue
+                    try:
+                        r, g, b = pixel[bellex, toiy]
+                        is_png = False
+                    except ValueError:
+                        is_png = True
+                        r, g, b, a = pixel[bellex, toiy]
+                    
+                    u = int(r/3 + g/3 + b/3)
+                    pixel[bellex, toiy] = (u, u, u)
+                    letra = self.morceau_de_toi(u)
+                    ts.write(letra)
+                    h5 = toiy * self.CHAR_HEIGHT
+                    w5 = bellex * self.CHAR_WIDTH
+
+                    if is_png:
+                        fill = (r, g, b, a)
+                    else:
+                        fill = (r, g, b)
+
+                    line_string.append([fill, letra])
+                    if lang == "arabic" or lang == "cyrillic":
+                        font_size = self.FONT_SIZE
+                        noir_et_blanc.text(
+                            (w5, h5), 
+                            letra, 
+                            fill=fill,
+                            font=ImageFont.truetype(
+                                "./ttf/DroidSansMono.ttf" \
+                                    if lang == "cyrillic" else \
+                                "./ttf/Janna LT Bold.ttf",
+                                font_size,
+                                encoding="utf-8"
+                            ),
+                            stroke_width=self.STROKE_WIDTH,
+                        )
+                    else:
+                        noir_et_blanc.text(
+                            (w5, h5), 
+                            letra, 
+                            fill=fill,
+                            stroke_width=self.STROKE_WIDTH
+                        )
+        
+                if DEBUG:
+                    colored_string = ""
+                    for each in line_string:
+                        colored_string += colored(
+                            each[0][0], 
+                            each[0][1],
+                            each[0][2], 
+                            each[1].replace(" ", "")
+                        )
+                    print(colored_string)
+                
+                line_string = []
+                ts.write("\n")
+            
+            vous = os.path.join(
+                self.LOCA_DROP,
+                hash_nom(vous, "png")
+            )
+            votre_cadre.save(vous)
+    
+    def shred(self):
+        for f in os.listdir(self.LOCA_DROP):
+            if f.endswith(".txt"):
+                logger.info("[INFO] Shredding {}".format(
+                    os.path.join(self.LOCA_DROP, f)
+                    )
+                )
+                os.unlink(os.path.join(self.LOCA_DROP, f))
+
+    def shred_out(self):
+        if len(os.listdir(self.LOCA_DROP)) == 0:
+            return False
+        for f in os.listdir(self.LOCA_DROP):
+            logger.info("[INFO] Removing {}".format(
+                    os.path.join(self.LOCA_DROP, f)
+                )
+            )
+            os.unlink(os.path.join(self.LOCA_DROP, f))
+
+
+def main():
+    args = PARSER.parse_args()
+    if not os.path.exists(settings.IMG_DIR):
+        logger.error("[ERROR] No images folder")
+        exit(1)
+    if not os.path.exists(settings.OUT_DIR):
+        os.mkdir(settings.OUT_DIR)
+    if args.language[0] == "cyrillic":
+        chars = "$@B%8&WM#*{}/\\|()1[]?-_+~<>i!lI;:,\"^`'.".format(
+            settings.META_CHARS["cyrillic"]
+        )[::-1]
+    elif args.language[0] == "arabic":
+        chars = "$@B%8&WM#*"+settings.META_CHARS["arabic"]+"/\\|()1{}[]?-_+~<>i!lI;:,\"^`'."[::-1]
+    else:
+        chars =  "$@B%8&WM#*oahkbdpqwmZO0QLC763YXzc/\\|()1{}[]?-_+~<>i!lI;:,\"^`'."[::-1]
+    engine = VotrePhotographie(**{
+        "CHARS" : chars,
+        "CHARS_LIST" : list(chars),
+        "CHARS_LENGTH" : len(list(chars)),
+        "IMAGES" : os.path.join(THIS_DIR, "images"),
+        "LOCA_DROP" : os.path.join(THIS_DIR, "output"),
+        "INTERVAL" : len(list(chars))/256,
+        "SCALE_FACTOR" : args.scale_factor[0],
+        "CHAR_WIDTH" : args.char_width[0],
+        "CHAR_HEIGHT" : args.char_height[0],
+        "COLOR" : tuple(args.color),
+        "LANGUAGE" : args.language[0],
+        "FONT_SIZE" : args.font_size[0],
+        "STROKE_WIDTH" : args.stroke_width[0],
+        "NO_COLOR" : True if args.no_color[0] == "yes" else False
+    })
+
+    engine.shred_out()
+    engine.executer()
+    engine.shred()
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,234 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+import pdb
+import sys
+
+from PIL import Image, ImageFilter
+
+sys.path.append("..")
+
+from utils.tools import swap, shred_out, valid_location
+from settings import THIS_DIR, META_CHARS
+
+
+IMG_DIR = os.path.join(THIS_DIR, "images")
+
+OUT_DIR = os.path.join(THIS_DIR, "output")
+
+
+parser = argparse.ArgumentParser(description=(
+    "Does some image segmentation on coordinates, and users swapper functionality "
+    "and thats it."
+    )
+)
+
+parser.add_argument(
+    "image",
+    type=valid_location,
+    help="[INFO] Image location relative."
+)
+
+parser.add_argument(
+    "wb",
+    type=str,
+    choices=["white", "black"],
+    help="[INFO] select choice - white or black."
+)
+
+parser.add_argument(
+    "coords",
+    type=int,
+    nargs="+",
+    metavar="0 0 0 0",
+    help="[INFO] Coordenates to crop, left, upper, right, lower"
+)
+
+parser.add_argument(
+    "threshold_gray",
+    type=int,
+    metavar="57",
+    help="[INFO] Threshold for white and black images"
+)
+
+parser.add_argument(
+    "fmt",
+    type=str,
+    choices=["png", "jpeg", "jpg"],
+    metavar="png",
+    help="[INFO] Image output format"
+)
+
+parser.add_argument(
+    "--scale-factor",
+    type=float,
+    metavar="0.05",
+    help="[INFO] scale factor for swapper"
+)
+
+parser.add_argument(
+    "--char-width",
+    type=int,
+    metavar="9",
+    help="[INFO] char width for swapper"
+)
+
+parser.add_argument(
+    "--char-height",
+    type=int,
+    metavar="9",
+    help="[INFO] char height for swapper"
+)
+
+parser.add_argument(
+    "--color",
+    type=int,
+    nargs="+",
+    help="[INFO] Color for the rendering defaults to 0 0 0"
+)
+
+parser.add_argument(
+    "--superimpose",
+    type=str,
+    choices=["yes", "no"],
+    help="To superimpose the image back onto "
+)
+
+
+def erode(cycles, image):
+    for _ in range(cycles):
+        image = image.filter(ImageFilter.MinFilter(3))
+    return image
+
+
+def dilate(cycles, image):
+    for _ in range(cycles):
+        image = image.filter(ImageFilter.MaxFilter(3))
+    return image
+
+
+def segment(image, coords, threshold_gray, wb):
+    dog = image
+    dog.load()
+
+    box = coords if type(coords) == tuple else tuple(coords)
+    dog_crop = dog.crop(box)
+    dog_gray = dog_crop.convert("L")
+    
+    try:
+        r, g, b = dog_crop.split()
+    except ValueError:
+        try:
+            r, g, b, a = dog_crop.split()
+        except ValueError:
+            b = dog_crop.split()[0]
+        
+    if wb == "black":
+        threshold = threshold_gray
+        dog_threshold = b.point(lambda x: 0 if x > threshold else 255)
+        dog_threshold = dog_threshold.convert("1")
+    else:
+        threshold = threshold_gray
+        dog_threshold = g.point(lambda x: 255 if x > threshold else 0)
+        dog_threshold = dog_threshold.convert("1")
+    
+    step_1 = erode(12, dog_threshold)
+    step_2 = dilate(58, step_1)
+    
+    dog_mask = erode(45, step_2)
+    dog_mask = dog_mask.convert("L")
+    dog_mask = dog_mask.filter(ImageFilter.BoxBlur(20))
+    
+    blank = dog_crop.point(lambda _: 0)
+    dog_segmented = Image.composite(dog_crop, blank, dog_mask)
+    
+    return dog_segmented, dog_mask
+
+
+def superimpose(segmented, mask, original_image, save, **kwargs):
+    img, name, wh  = swap(segmented, **kwargs)
+    original_image.load()
+    coords = kwargs["coords"] 
+    box = coords if type(coords) == tuple else tuple(coords)
+    img = img.resize(
+        (
+            wh[0], wh[1]
+        ),
+        Image.NEAREST
+    )
+    mask.resize(
+        (
+            wh[0], wh[1]
+        ),
+        Image.NEAREST
+    )
+    
+    original_image.paste(img,box, mask)
+    if save:
+        original_image.save(name, kwargs["fmt"].upper())
+        return True
+    return original_image
+
+
+def main():
+    if not os.path.exists(OUT_DIR):
+        os.makedirs(OUT_DIR)
+    else:
+        shred_out(OUT_DIR)
+
+    args = parser.parse_args()
+    image = args.image
+    coords = args.coords
+    threshold_gray = args.threshold_gray
+    wb = args.wb
+    fmt = args.fmt
+    if args.color:
+        color = tuple(list(args.color) + [0]) # This one is alpha.
+    else:
+        color = (0, 0, 0, 0)
+
+    if args.scale_factor:
+        scale_factor = args.scale_factor
+    else:
+        scale_factor = 0.20
+
+    if args.char_width:
+        char_width = 7
+    else:
+        char_width = 7
+
+    if args.char_height:
+        char_height = args.char_height
+    else:
+        char_height=7
+    
+    image = os.path.join(IMG_DIR, image)
+    image_2_load = Image.open(image)
+    segmen, mask = segment(
+        image_2_load, 
+        coords, 
+        threshold_gray, 
+        wb
+    )
+    
+    original_image = os.path.join(IMG_DIR, image)
+    original_image = Image.open(original_image)   
+    
+    superimpose(
+        segmen, 
+        mask, 
+        original_image, 
+        True, 
+        **{"scale_factor" : scale_factor,
+        "char_width" : char_width,
+        "char_heigth" : char_height,
+        "color" : color,
+        "fmt" : fmt,
+        "coords" : coords,
+        "select_colors" : (255, 0, 255)}
+    )
+
+
+if __name__ == "__main__":
+    main()

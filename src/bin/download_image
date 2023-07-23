@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+import sys
+
+import requests
+
+sys.path.append("..")
+
+import settings
+from utils.logger import get_logger
+from utils.tools import valid_url, valid_location
+
+
+logger = get_logger(__name__)
+
+
+parser = argparse.ArgumentParser(
+    description=(
+        "Downloads image by url and saves in images folder, tackles issues"
+        " with saving images as webpm"
+    )
+)
+
+parser.add_argument(
+    "url",
+    type=valid_url,
+    help="[INFO] Url for the image to download"
+)
+
+parser.add_argument(
+    "image_name",
+    type=valid_location,
+    help="[INFO] Name to use for saving this image.",
+)
+
+
+def main():
+    try:
+        args = parser.parse_args()
+        resp = requests.get(args.url)
+        path = os.path.join(settings.THIS_DIR, "images", args.image_name)
+        with open(path, "wb") as ts:
+            ts.write(resp.content)
+            ts.close()
+            logger.info("{} saved".format(path))
+    except Exception as error:
+        logger.info(str(error))
+        return False
+    return True
+
+
+if __name__ == "__main__":
+    main()
