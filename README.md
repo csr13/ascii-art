@@ -1,10 +1,18 @@
-## ASCII ART
+
+<h1 align="center"> Ascii Art </h1>
+
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
+<p align="center">
+    <img src="./etc/anime.png"   />
+</p>
 
 A set of scripts for asciifying images, can be run locally or via docker container.
 
 ### Docker Setup (Recommended)
 
-Build the image
+There is a `build.sh` script on this directory, it builds the image docker image as `art:latest` -- uses alpine.
+
 ```
 ~$ docker build --tag=art:latest .
 ```
@@ -15,59 +23,36 @@ Examples.
 
 ```
 ~$ docker run -it -e script_name=image_segmentation \
-  --mount type=bind,source=$(pwd)/src/images/,target=/src/images/ \
-  --mount type=bind,source=$(pwd)/src/output/,target=/src/output/ \
+  --mount type=bind,source=$(pwd)/src/images/,target=/home/art/src/images/ \
+  --mount type=bind,source=$(pwd)/src/output/,target=/home/art/src/output/ \
   --name=art \
   --rm \
   art:latest image_segmentation -h
 
 ~$ docker run -it -e script_name=image_segmentation \
-  --mount type=bind,source=$(pwd)/src/images/,target=/src/images/ \
-  --mount type=bind,source=$(pwd)/src/output/,target=/src/output/ \
+  --mount type=bind,source=$(pwd)/src/images/,target=/home/art/src/images/ \
+  --mount type=bind,source=$(pwd)/src/output/,target=/home/art/src/output/ \
   --name=art \
   --rm \
   art:latest swapper -h
 ```
 
----
-
-### Local Machine Setup
-
-#### Requirements:
-
-- Python3.8 >
-- Debian (Ubuntu 18.04, 20.04) - Tested
-
-Within the `/src` directory of the project, add a directory called `images`, within
-this directory include all the images you want to conver to ascii. In addition, create
-also within `/src` create another directory called `output` which will be where the rendered art
-will be generated.
-
-Install dependencies
-```bash
-:~$ python3.8 -m pip install -r requirements.txt
-```
-
-Depending on installation u might need to install `cv2` required libraries
-```
-apt-get update -y && \
-    apt-get install -y \
-    ffmpeg \
-    libsm6 \
-    libxext6
-```
----
-
-### Examples
-
-Every script has it's own help menu and you can trigger it by running the script with
+Every script has it's help menu -- trigger it by running the script with
 the --help flag, below is the output of each of the scripts
+
 Usable Scripts:
+
 - `image_segmentation`
 - `swapper`
 
+> ❗ It is required to pass the name of the script to use as an env variable when runing the container eg:
+> 
+> `~$docker ... -e script_name=<script_name>`
+
+### image_segmentation Asciify segmented parts of image 
 
 Options for `image_segmentation` script, this takes image name from any image on `images` folder and applies some asciification depending on given arguments.
+
 ```
 usage: image_segmentation [-h] [--scale-factor 0.05] [--char-width 9] [--char-height 9] [--color COLOR [COLOR ...]] [--superimpose {yes,no}] image {white,black} 0 0 0 0 [0 0 0 0 ...] 57 png
 
@@ -90,20 +75,36 @@ options:
   --superimpose {yes,no}
                         To superimpose the image back onto
 ```
-#### image_segmentation practical example.
+
+Example:
 
 Run `image_segmentation` on an image sky.jpeg where the whites of the image will be asciified, only apply to coordenates left, upper, right, lower, apply 133 (agression for asciification) scale factor of the asciification to 0.22 character width 10 character height 10 and apply color red to asciification.
 ```
 ~$ docker run -it -e script_name=image_segmentation \
-  --mount type=bind,source=$(pwd)/src/images/,target=/src/images/ \
-  --mount type=bind,source=$(pwd)/src/output/,target=/src/output/ \
+  --mount type=bind,source=$(pwd)/src/images/,target=/home/art/src/images/ \
+  --mount type=bind,source=$(pwd)/src/output/,target=/home/art/src/output/ \
   --name=art \
   --rm \
   art:latest sky.jpeg white 0 0 1000 1000 133 png --scale-factor=0.22 --char-width=10 --char-height=10 --color 255 0 0
 ```
 
-> It is important to notice that if given wrong coordinates there will be a segmentation fault, but if your give inaccurate coordinates the program will throw an exception with a informative exception message.
+> :exclamation: It is important to notice that if given wrong coordinates there will be a segmentation fault, but if your give inaccurate coordinates the program will throw an exception with a informative exception message.
 ---
+
+
+<h3 align="center"> Output with no color -- segmentation of white and black. </h3>
+<p align="center">
+    <img width=350 height=350 src="./etc/segmentation_white_ex.png"   /> <img width=350 height=350 src="./etc/segmentation_black_ex.png" />
+</p>
+
+
+<h3 align="center"> Output with color purple and white -- segmentation of white and black. </h3>
+<p align="center">
+    <img width=350 height=350 src="./etc/segmentation_ascii_purple.png"   /> <img width=350 height=350 src="./etc/segmentation_ex_color_white.png"   /> 
+</p>
+
+
+#### swapper Asciify the entire picture, image to ascii image.
 
 Options for `swapper` script, scripts takes all images and asciifies them
 ```
@@ -132,12 +133,19 @@ options:
 
 #### swapper practical example
 
-Process all images on images directory with a scale factor of 19, character width of 15, character height of 19, the color white as the asciification color.
+With this script it is possible to change the color of the ascii characters, as well as using the arabic language, I included some fonts.
+
+Process all images on images directory with a scale factor of 19, character width of 15, character height of 19, the color white as the asciification color
 ```
 ~$ docker run -it -e script_name=swapper \
-  --mount type=bind,source=$(pwd)/src/images/,target=/src/images/ \
-  --mount type=bind,source=$(pwd)/src/output/,target=/src/output/ \
+  --mount type=bind,source=$(pwd)/src/images/,target=/home/art/src/images/ \
+  --mount type=bind,source=$(pwd)/src/output/,target=/home/art/src/output/ \
   --name=art \
   --rm \
   art:latest --scale-factor=0.19 --char-width=15 --char-height=19 --color 255 255 255
 ```
+
+<h3 align="center"> swapper output examples </h3>
+<p align="center">
+    <img width=350 height=350 src="./etc/anime.png"   /> <img width=350 height=350 src="./etc/swapper.png" />
+</p>
