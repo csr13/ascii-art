@@ -9,6 +9,7 @@ from PIL import Image, ImageFilter
 
 sys.path.append("..")
 
+from utils.logger import get_logger
 from utils.tools import swap, shred_out, valid_location
 from settings import THIS_DIR, META_CHARS
 
@@ -17,6 +18,7 @@ IMG_DIR = os.path.join(THIS_DIR, "images")
 
 OUT_DIR = os.path.join(THIS_DIR, "output")
 
+logger = get_logger(__name__)
 
 parser = argparse.ArgumentParser(description=(
     "Does some image segmentation on coordinates, and users swapper functionality "
@@ -115,13 +117,14 @@ def segment(image, coords, threshold_gray, wb):
     box = coords if type(coords) == tuple else tuple(coords)
     dog_crop = dog.crop(box)
     dog_gray = dog_crop.convert("L")
-    
+    b_only = False 
     try:
         r, g, b = dog_crop.split()
     except ValueError:
         try:
             r, g, b, a = dog_crop.split()
         except ValueError:
+            b_only = True
             b = dog_crop.split()[0]
         
     if wb == "black":
@@ -130,7 +133,10 @@ def segment(image, coords, threshold_gray, wb):
         dog_threshold = dog_threshold.convert("1")
     else:
         threshold = threshold_gray
-        dog_threshold = g.point(lambda x: 255 if x > threshold else 0)
+        if b_only:
+            dog_threshold = b.point(lambda x: 0 if x > threshold else 255)
+        else:
+            dog_threshold = g.point(lambda x: 255 if x > threshold else 0)
         dog_threshold = dog_threshold.convert("1")
     
     step_1 = erode(12, dog_threshold)
@@ -183,6 +189,8 @@ def main():
     threshold_gray = args.threshold_gray
     wb = args.wb
     fmt = args.fmt
+    if image.endswith(".png"):
+        logger.info("Some errors might occur using png images, recommend using jpg")
     if args.color:
         color = tuple(list(args.color) + [0]) # This one is alpha.
     else:

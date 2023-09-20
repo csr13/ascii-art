@@ -1,3 +1,4 @@
+
 import datetime
 import hashlib
 import os
@@ -10,7 +11,11 @@ from PIL import Image, ImageDraw, ImageFont
 
 sys.path.append("..")
 
+from .logger import get_logger
 from settings import META_CHARS, THIS_DIR
+
+
+logger = get_logger(__name__)
 
 
 def valid_location(image_name, delete=False):
@@ -69,6 +74,8 @@ def shred_out(loca):
     if len(os.listdir(loca)) == 0:
         return False
     for f in os.listdir(loca):
+        if f == ".gitkeep":
+            continue
         print("[INFO] Removing {}".format(
                 os.path.join(loca, f)
             )
@@ -85,6 +92,8 @@ def hash_nom(nom, fmt):
         return "%s%s" % (t2, ".jpeg")
     elif fmt == "png":
         return "%s%s" % (t2, ".png")
+    elif fmit == "jpg":
+        return "%s%s" % (t2, ".jpg")
     raise NotImplementedError()
 
 
@@ -159,7 +168,11 @@ def swap(toi, random_colors=False, selected_colors=False, **kwargs):
                     try:
                         r, g, b = pixel[bellex, toiy]
                     except (ValueError, TypeError):
-                        r, g, b, a = pixel[bellex, toiy]
+                        try:
+                            r, g, b, a = pixel[bellex, toiy]
+                        except Exception as error:
+                            logger.info("Unable to process try an image with a different format.")
+                            exit(1)
 
                     u = int(r/3 + g/3 + b/3)
                     pixel[bellex, toiy] = (u, u, u)

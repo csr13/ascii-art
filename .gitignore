@@ -1,6 +1,6 @@
 __pycache__
 venv
-output/*
-images/*
+output/
+images/
 *.swp
 *.jpg
