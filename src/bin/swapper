@@ -234,9 +234,9 @@ class VotrePhotographie(object):
                             letra, 
                             fill=fill,
                             font=ImageFont.truetype(
-                                "./ttf/DroidSansMono.ttf" \
+                                "/home/art/src/data/ttf/DroidSansMono.ttf" \
                                     if lang == "cyrillic" else \
-                                "./ttf/Janna LT Bold.ttf",
+                                "/home/art/src/data/ttf/Janna LT Bold.ttf",
                                 font_size,
                                 encoding="utf-8"
                             ),

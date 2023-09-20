@@ -5,25 +5,12 @@ import math
 import random
 import sys
 
-import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 sys.path.append("..")
 
 from settings import META_CHARS, THIS_DIR
-
-
-def convert_opencv2_to_pill(image):
-    color_coverted = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    pil_image=Image.fromarray(color_coverted)
-    return pil_image
-
-
-def convert_pill_to_opencv2(image):
-    numpy_image=np.array(image, dtype="uint8")  
-    opencv_image=cv2.cvtColor(numpy_image, cv2.COLOR_RGB2BGR) 
-    return opencv_image
 
 
 def valid_location(image_name, delete=False):
