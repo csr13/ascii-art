@@ -190,7 +190,7 @@ def main():
     wb = args.wb
     fmt = args.fmt
     if image.endswith(".png"):
-        logger.info("Some errors might occur using png images, recommend using jpg")
+        logger.info("Some errors might occur using png images, recommend using jpg.")
     if args.color:
         color = tuple(list(args.color) + [0]) # This one is alpha.
     else:

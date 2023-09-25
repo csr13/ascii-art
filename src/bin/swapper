@@ -7,7 +7,6 @@ import pdb
 import random
 import subprocess
 import sys
-import threading
 
 from tqdm import tqdm
 try:
@@ -28,8 +27,6 @@ from utils.tools import hash_nom, colored
 logger = get_logger(__name__)
 
 THIS_DIR = settings.THIS_DIR
-
-MONTRER_DES_PHOTOS = False
 
 DEBUG = False
 
@@ -125,21 +122,6 @@ class VotrePhotographie(object):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    def checks(self):
-        if subprocess.run(
-            "which mimeopen".split(), 
-            capture_output=True
-        ).returncode == 1:
-
-            return False
-        return True
-
-    def montrer_la_photo(self, photo):
-        if not self.checks():
-            return False
-        os.system("mimeopen {}".format(photo))
-        return True
-
     def emplacement_de_depot(self):
         if not os.path.exists(self.LOCA_DROP):
             os.mkdir(self.LOCA_DROP)
@@ -149,20 +131,16 @@ class VotrePhotographie(object):
         self.emplacement_de_depot()
         ou_je_te_garde = self.IMAGES
         for vous in os.listdir(ou_je_te_garde):
+            if vous == ".gitkeep":
+                continue
+            if vous.endswith(".png"):
+                logger.info('Skipping PNG file %s' % vous)
+                continue
             self.vous_dessine(vous)
 
     def morceau_de_toi(self, piece : int):
         u = math.floor(piece * self.INTERVAL)
         return self.CHARS_LIST[u]
-    
-    def show_vous(self, vous):
-        logger.info("[INFO] Ouverture photo modifiée {}".format(vous))
-        daemon = threading.Thread(
-            target=self.montrer_la_photo, 
-            args=(vous,),
-            daemon=bool(1)
-        )
-        daemon.start()
 
     def vous_dessine(self, vous):
         votre_nom = os.path.join(
@@ -220,12 +198,10 @@ class VotrePhotographie(object):
                     ts.write(letra)
                     h5 = toiy * self.CHAR_HEIGHT
                     w5 = bellex * self.CHAR_WIDTH
-
                     if is_png:
                         fill = (r, g, b, a)
                     else:
                         fill = (r, g, b)
-
                     line_string.append([fill, letra])
                     if lang == "arabic" or lang == "cyrillic":
                         font_size = self.FONT_SIZE
@@ -283,6 +259,8 @@ class VotrePhotographie(object):
         if len(os.listdir(self.LOCA_DROP)) == 0:
             return False
         for f in os.listdir(self.LOCA_DROP):
+            if f == ".gitkeep":
+                continue
             logger.info("[INFO] Removing {}".format(
                     os.path.join(self.LOCA_DROP, f)
                 )
