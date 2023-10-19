@@ -92,18 +92,6 @@ Run `image_segmentation` on an image sky.jpeg where the whites of the image will
 ---
 
 
-<h3 align="center"> Output with no color -- segmentation of white and black. </h3>
-<p align="center">
-    <img width=350 height=350 src="./etc/segmentation_white_ex.png"   /> <img width=350 height=350 src="./etc/segmentation_black_ex.png" />
-</p>
-
-
-<h3 align="center"> Output with color purple and white -- segmentation of white and black. </h3>
-<p align="center">
-    <img width=350 height=350 src="./etc/segmentation_ascii_purple.png"   /> <img width=350 height=350 src="./etc/segmentation_ex_color_white.png"   /> 
-</p>
-
-
 #### swapper Asciify the entire picture, image to ascii image.
 
 Options for `swapper` script, scripts takes all images and asciifies them
